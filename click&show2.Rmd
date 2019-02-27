@@ -1,0 +1,95 @@
+---
+title: "Easy with clickSelect and showSelect"
+output: html_notebook
+---
+
+
+```{r}
+#library(ggplot2)
+library(reshape2)
+library(animint)
+```
+
+
+```{r}
+#Getting the data for click
+#reading and conversion
+#change the name of ___.AF8.FUT to ___ and then melt
+df <- read.csv("futures data.csv")
+df$Trade.Date <- as.Date(df$Trade.Date, format="%d/%m/%y")
+df_new <- melt(df[, c("Trade.Date", "USD.AF8.FUT", "JPY.AF8.FUT", "GBP.AF8.FUT", "EUR.AF8.FUT")], id="Trade.Date")
+bp<-c("2011-01-01", "2012-01-01", "2013-01-01", "2014-01-01", "2015-01-01", "2016-01-01",
+           "2017-01-01", "2018-01-01")
+bpoints = as.Date(bp, format="%Y-%m-%d")
+df_new$year <- as.numeric(format(df$Trade.Date,'%Y'))
+df_new$bucket <- cut(df_new$year, breaks = c(2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018))
+df_new$region = as.character(df_new$variable)
+curr_name <- c("USD.AF8.FUT", "JPY.AF8.FUT", "GBP.AF8.FUT", "EUR.AF8.FUT")
+reg_name <- c("USA", "Japan", "UK", "Belgium")
+for (i in c(1:5)) {
+  df_new$region[df_new$region==curr_name[i]] <- reg_name[i]
+}
+long<-c(-119.5492630005,128.2587890625,-1.0655759573,6.2359375954)
+lat <- c(34.0281715393, 26.6527824402, 50.6902351379, 50.5966796875)
+for (i in 1:4) {
+  df_new$long[df_new$region==reg_name[i]] = long[i]
+  df_new$lat[df_new$region==reg_name[i]] = lat[i]
+}
+#head(df_new)
+write.csv(df_new, file = "full_data.csv")
+#df_new <- read.csv("newer_data.csv")
+#head(df_new)
+```
+
+
+
+```{r}
+#adding world map
+library(maps)
+
+#dataframe of all countries
+countries <- map_data("world")
+
+#dataframe for selected countries
+reg_name <- c("USA", "Japan", "UK", "Belgium")
+select_ctry <- countries[countries$region=="USA",]
+for (i in 2:4){
+  tmp <- countries[countries$region==reg_name[i],];
+  select_ctry <- rbind(select_ctry,tmp)  
+}
+write.csv(select_ctry,file = "select_ctry.csv")
+
+#world plot
+# p_world <- ggplot() + geom_polygon(data=countries, aes(x=long,y=lat,group=group),color="steelblue") + geom_point(data=df_new, aes(x=long,y=lat,color=region), clickSelect = df_new$region)
+# #structure(list(plot=p_world), class="animint2")
+# #animint2dir(list(plot=p_world), out.dir = "worldmap", open.browser = TRUE)
+# #animint2gist(list(plot=p_world))
+```
+
+```{r}
+head(df)
+```
+
+```{r warning=FALSE}
+theme_config = theme(plot.background = element_rect(fill = "lightsteelblue2", colour = "red"), plot.title = element_text(size = 20, face="bold", hjust = 0.5), 
+        plot.subtitle = element_text(size = 10, hjust = 0.5), 
+        plot.caption = element_text(size = 10), 
+        axis.text.x = element_text(size = 10, angle=30, hjust = 0.5), 
+        axis.text.y = element_text(size=10, angle = 30), 
+        panel.background = element_rect(fill = "pink"),
+        panel.grid.minor =element_line(color = "white", linetype = "dashed")) 
+
+#world plot
+p_world <- ggplot() + geom_polygon(data=countries, aes(x=long,y=lat,group=group, clickSelects=region),color="steelblue",fill="lightsteelblue2") + geom_point(data=df_new, aes(x=long,y=lat,color = region, clickSelects=region),size=5) + labs(title="India's FOREX partners") + theme_animint(width = 500, height = 350)
+
+
+gg_anm2_sel <- ggplot(df_new) + geom_freqpoly(binwidth=5, aes(x=value, color=region, showSelected=region)) + labs(title="Futures FX Data: Frequency Polygon", subtitle="2010-2018", x="Price", y="Count", caption="Source: MSEI") + theme_config  + scale_x_continuous(breaks=seq(0, 150, 5))
+
+gg_anm2_out <- ggplot() +  geom_point(data = df_new, aes(x=df_new$Trade.Date, y=value, showSelected=region, color=region)) + labs(title="Futures FX Data: Data Points", subtitle="As per country selected", x="Dates", y="Future Exchange Rate(INR)", caption="Source: MSEI") + theme_config 
+
+plot <- list(plot1=p_world, plot2 =gg_anm2_sel)
+#structure(plot, class="animint2")
+animint2gist(plot, description = "Futures Currency Market")
+animint2dir(plot, out.dir = "click_select", open.browser = TRUE)
+```
+
